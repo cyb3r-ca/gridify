@@ -8,6 +8,7 @@
 
   const detect = (left, top, width, height) => {
     let es = [];
+
     for (let x = left; x <= left + width; x += width / config.steps) {
       for (let y = top; y <= top + height; y += height / config.steps) {
         const e = [...document.elementsFromPoint(x * innerWidth / 100, y * innerHeight / 100)]
@@ -37,12 +38,14 @@
     }
     const overlaps = es.map(e => {
       const box = e.getBoundingClientRect();
+
       const area =
         (Math.min(box.right, (left + width) / 100 * innerWidth) - Math.max(box.left, left / 100 * innerWidth)) *
         (Math.min(box.bottom, (top + height) / 100 * innerHeight) - Math.max(box.top, top / 100 * innerHeight));
 
       return area / (box.width * box.height);
     });
+
     if (config.removeByWeight) {
       const mes = es.filter((e, i) => overlaps[i] > config.removeByWeight);
       if (mes.length) {
@@ -57,6 +60,8 @@
   };
 
   const history = [];
+  const history2 = [];
+  
   const find = digit => {
     history.push(digit);
 
@@ -64,6 +69,7 @@
     let top = 0;
     let width = 100;
     let height = 100;
+
     for (const n of history) {
       if (n === 2 || n === 5 || n === 8) {
         left += width / 3;
@@ -82,6 +88,7 @@
     }
 
     build(left, top, width, height, colors[history.length % colors.length], history.length);
+    
     const es = detect(left, top, width, height);
 
     if (es.length === 1) {
@@ -91,8 +98,53 @@
         e.click();
       }
       remove();
+    } else if (es.length === 0) {
+      remove();
+      chrome.runtime.sendMessage({
+        method: 'notify',
+        message: 'No link or selectable element is detected'
+      });
     }
-    else if (es.length === 0) {
+  };
+
+  // todo
+  const find2 = keycode => {
+    history2.push(keycode);
+
+    let left = 0;
+    let top = 0;
+    let width = 100;
+    let height = 100;
+
+    for (const n of history2) {
+      if (n === 2 || n === 5 || n === 8) {
+        left += width / 3;
+      }
+      if (n === 3 || n === 6 || n === 9) {
+        left += width * 2 / 3;
+      }
+      if (n === 4 || n === 5 || n === 6) {
+        top += height / 3;
+      }
+      if (n === 1 || n === 2 || n === 3) {
+        top += height * 2 / 3;
+      }
+      width = width / 3;
+      height = height / 3;
+    }
+
+    build(left, top, width, height, colors[history.length % colors.length], history.length);
+    
+    const es = detect(left, top, width, height);
+
+    if (es.length === 1) {
+      const e = es[0];
+      e.focus();
+      if (e !== document.querySelector(':focus')) {
+        e.click();
+      }
+      remove();
+    } else if (es.length === 0) {
       remove();
       chrome.runtime.sendMessage({
         method: 'notify',
@@ -102,8 +154,10 @@
   };
 
   const keydown = e => {
-    if (e.code.startsWith('Digit') || e.code.startsWith('Numpad')) {
-      find(Number(e.key));
+    // todo
+    if (e.code.startsWith('Arrow') /*|| e.code.startsWith('Numpad')*/ ) {
+      //find(Number(e.key));
+      find2(String(e.key));
     }
     else if (e.code === 'Backspace' || e.code === 'Delete') {
       remove(history.length);
@@ -122,6 +176,7 @@
     }
     e.preventDefault();
   };
+  
   const click = () => {
     remove();
   };
@@ -163,9 +218,11 @@
     document.documentElement.appendChild(iframe);
 
     const es = detect(left, top, width, height);
+    
     for (const e of [...document.querySelectorAll('.gves')]) {
       e.remove();
     }
+    
     if (level) {
       es.slice(0, 9).forEach((e, n) => {
         const box = e.getBoundingClientRect();
@@ -191,7 +248,9 @@
 
     opacity();
   };
+  
   remove();
+  
   build(0, 0, 100, 100, '#000');
 
   document.addEventListener('keydown', keydown);
